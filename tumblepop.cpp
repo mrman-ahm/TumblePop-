@@ -72,7 +72,7 @@ void Collision(float& x,float& y, float& offset_x, float& offset_y, float& veloc
 	right_mid = lvl[(int)(y+offset_y + Pheight/2) / cell_size][(int)(x+offset_x + Pwidth - Pwidth/4) / cell_size];
 	bottom_right = lvl[(int)(y+offset_y + Pheight) / cell_size][(int)(x+offset_x + Pwidth - Pwidth/4) / cell_size];
 	
-	//REST ARE USELESS FOR NOW
+	//REST LIMITS OTHER THAN BOTTOM LEFT AND RIGHT ARE USELESS FOR NOW BUT I STILL CREATED THEM FOR FUTURE USE
 	if(bottom_left=='#'){
 		left_collide=true;
 	}
@@ -92,14 +92,14 @@ void Collision(float& x,float& y, float& offset_x, float& offset_y, float& veloc
 
 }
 
-void movement(Event& ev, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround){
+void movement(Event& ev, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround, bool& direction){
 	offset_x=0;
 	offset_y=0;
 	if(Keyboard::isKeyPressed(Keyboard::Left)){
-		offset_x=-speed;		
+		offset_x=-speed;	direction=true;
 	}
 	if(Keyboard::isKeyPressed(Keyboard::Right)){
-		offset_x=speed;
+		offset_x=speed;	direction=false;
 	}
 		
 
@@ -156,7 +156,7 @@ int main()
 	//player data
 	float player_x = 500;
 	float player_y = 250;
-
+	bool direction = true; //true is left, false is right
 	float speed = 5;
 
 	const float jumpStrength = -20; // Initial jump velocity
@@ -203,9 +203,15 @@ int main()
 	char top_mid_up = '\0';
 	char top_left_up = '\0';
 
+	int setscale_x=3;
+	if(offset_x>0){
+		setscale_x= -3;
+	}
+	else
+		setscale_x=3;
 	PlayerTexture.loadFromFile("Data/player.png");
 	PlayerSprite.setTexture(PlayerTexture);
-	PlayerSprite.setScale(-3,3);
+	PlayerSprite.setScale(3,3);
 	//	FLIPPED
 
 
@@ -258,10 +264,15 @@ int main()
 
 		display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 		player_gravity(lvl,offset_y,velocityY,onGround,gravity,terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth);
-		movement(ev, player_x, player_y, offset_x, offset_y, velocityY, speed, jumpStrength, onGround);
+		movement(ev, player_x, player_y, offset_x, offset_y, velocityY, speed, jumpStrength, onGround, direction);
 		Collision(player_x,player_y, offset_x, offset_y, velocityY, speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, up_collide,left_collide,right_collide, lvl, PlayerHeight, PlayerWidth, cell_size);
-
-		PlayerSprite.setPosition(player_x+PlayerWidth, player_y);
+		
+		if(direction==true){
+			PlayerSprite.setScale(3,3);		PlayerSprite.setPosition(player_x, player_y);
+		}
+		else{
+			PlayerSprite.setScale(-3,3);		PlayerSprite.setPosition(player_x+PlayerWidth, player_y);
+		}
 
 		window.draw(PlayerSprite);
 		window.display();
