@@ -211,7 +211,6 @@ int main()
 		setscale_x=3;
 	PlayerTexture.loadFromFile("Data/player.png");
 	PlayerSprite.setTexture(PlayerTexture);
-	PlayerSprite.setScale(3,3);
 	//	FLIPPED
 
 
@@ -288,4 +287,5 @@ int main()
 
 	return 0;
 }
+
 
