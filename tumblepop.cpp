@@ -110,12 +110,12 @@ void movement_player(Event& ev, float& x, float& y, float& offset_x, float& offs
 		// UPDATING THE VALUES IN COLLISION FUNCTION
 	
 }
-void ghost_movement(Event& ev, char** lvl, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround, bool& direction, int& height, int& width, const int cell_size, int& GhostState){
-	
-	srand(time(0));
 
-	GhostState=rand()%360; // change states randomly after few frames
-	if(GhostState<100){
+void ghost_movement(Event& ev, char** lvl, int& timer, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround, bool& direction, int& height, int& width, const int cell_size, int& GhostState){
+	
+	if(timer==0)
+		GhostState=rand()%10; // change states randomly after few frames
+	if(GhostState<5&&GhostState!=0){
 		GhostState=1; // looking around
 	}
 	else{
@@ -123,10 +123,11 @@ void ghost_movement(Event& ev, char** lvl, float& x, float& y, float& offset_x, 
 	}
 	
 	if(GhostState==1){
-		// it will look around for some time and do nothing 
-		return;
+		timer++; if(timer>60) timer=0;
+		return;  // it will look around for some time and do nothing 
 	}
 	//but if is moving, this block will work
+	timer++; if(timer>360) timer=0;
 	offset_x=0;
 	offset_y=0;
 	
@@ -165,17 +166,35 @@ void animation(){
 
 }
 
+int spawn(char** lvl, int spawncandidates[100][2], const int height, const int width){
+	int x=0,y=0;
+	for(int i=2; i<height; i++)
+	{
+		for(int j=1; j<width-1; j++)
+		{
+			if(lvl[i][j]=='#'&&lvl[i-2][j]==' '&&lvl[i-1][j]==' ')
+			{
+				spawncandidates[x][0]=i-2;
+				spawncandidates[x++][1]=j;
+			}
+		}
+	}
+	return x;
+
+	
+}
+
 
 int main()
 {
+	srand(time(0));
 
 	RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Resize);
 	window.setVerticalSyncEnabled(true);
 	window.setFramerateLimit(60);
 	//level specifics
 	const int cell_size = 64;
-	const int height = 14;
-	const int width = 18;
+	const int height = 14; const int width = 18;
 	char** lvl;
 
 	//level and background textures and sprites
@@ -184,37 +203,25 @@ int main()
 	Texture blockTexture;
 	Sprite blockSprite;
 
-	bgTex.loadFromFile("Data/bg.png");
-	bgSprite.setTexture(bgTex);
-	bgSprite.setPosition(0,0);
+	bgTex.loadFromFile("Data/bg.png"); 	bgSprite.setTexture(bgTex); bgSprite.setPosition(0,0);
 
-	blockTexture.loadFromFile("Data/block1.png");
-	blockSprite.setTexture(blockTexture);
+	blockTexture.loadFromFile("Data/block1.png"); blockSprite.setTexture(blockTexture);
 
 	//Music initialisation
 	Music lvlMusic;
-
-	lvlMusic.openFromFile("Data/mus.ogg");
-	lvlMusic.setVolume(20);
-	lvlMusic.play();
-	lvlMusic.setLoop(true);
+	lvlMusic.openFromFile("Data/mus.ogg");	lvlMusic.setVolume(20);	lvlMusic.play();	lvlMusic.setLoop(true);
 
 	//PLAYER data
-	float player_x = 500;
-	float player_y = 250;
+	float player_x = 64;	float player_y = 64;
 	bool player_direction = true; //true is left, false is right
 	float player_speed = 5;
 	
-	int PlayerHeight = 102;
-	int PlayerWidth = 96;
+	int PlayerHeight = 102;	int PlayerWidth = 96;
 
-	float player_offset_x = 0;
-	float player_offset_y = 0;
+	float player_offset_x = 0;	float player_offset_y = 0;
 	float player_velocityY = 0;
 	
-	bool up_collide = false;
-	bool left_collide = false;
-	bool right_collide = false;
+	bool up_collide = false;	bool left_collide = false;	bool right_collide = false;
 
 	int PlayerState=0; //0=idle, 1=running, 2=jumping //means what the player is doing currently. I gave this just as example
 
@@ -222,39 +229,25 @@ int main()
 	bool onGround = false; //this is for player right now but new will be created for enemies later
 
 	//GHOST data
-	float ghost_x = 450; //sample values for now
-	float ghost_y = 300;
-	bool ghost_direction=true;
+	float ghost_x[8] = {450};	float ghost_y[8] = {300};
+	bool ghost_direction[8]={true};
 	float ghost_speed=2;
 
-	int GhostHeight=102;
-	int GhostWidth=96;
+	int GhostHeight=102;	int GhostWidth=96;
 
-	float ghost_offset_x = 0;
-	float ghost_offset_y = 0;
-	float ghost_velocityY = 0;
-
-	int GhostState=0; //0=normal, 1=looking around, 
+	float ghost_offset_x[8] = {0};	float ghost_offset_y[8] = {0};
+	float ghost_velocityY[8] = {0};
+	int frame[8]={0};
+	int ghosttimer[8]={0};
+	int startpoint[8]={0};
+	int GhostState[8]={0}; //0=normal, 1=looking around,
 
 	//EXTRA VARIABLES
-	char top_left = '\0';
-	char top_right = '\0';
-	char top_mid = '\0';
-
-	char left_mid = '\0';
-	char right_mid = '\0';
-
-	char bottom_left = '\0';
-	char bottom_right = '\0';
-	char bottom_mid = '\0';
-
-	char bottom_left_down = '\0';
-	char bottom_right_down = '\0';
-	char bottom_mid_down = '\0';
-
-	char top_right_up = '\0';
-	char top_mid_up = '\0';
-	char top_left_up = '\0';
+	char top_left = '\0';	char top_right = '\0';	char top_mid = '\0';
+	char left_mid = '\0';	char right_mid = '\0';
+	char bottom_left = '\0';	char bottom_right = '\0';	char bottom_mid = '\0';
+	char bottom_left_down = '\0';	char bottom_right_down = '\0';	char bottom_mid_down = '\0';
+	char top_right_up = '\0';	char top_mid_up = '\0';	char top_left_up = '\0';
 
 	// gravity and jump
 	const float jumpStrength = -20; // Initial jump velocity
@@ -263,20 +256,17 @@ int main()
 
 
 	//PLAYER SPRITE
-	Texture PlayerTexture;
-	Sprite PlayerSprite;
+	Texture PlayerTexture;	Sprite PlayerSprite;
 	if(!(PlayerTexture.loadFromFile("Data/player.png"))){ cout<<"Error to load Player Texture\n"; return -1;} //Isme mene texture to upload bhi kia aur ye bhi check kia if the file loaded successfully
 	PlayerSprite.setTexture(PlayerTexture);
 
 	//	GHOST SPRITE
-	Texture GhostTexture;
-	Sprite GhostSprite;
+	Texture GhostTexture;	Sprite GhostSprite[8];
 	if(!(GhostTexture.loadFromFile("Assets/Arcade - Tumble Pop - Enemies - Ghost---motiononly.png"))){ cout<<"Error Loading Ghost Texture\n"; return -1;}
-	GhostSprite.setTexture(GhostTexture);
-	int startpoint=0;
-	int frame=0;
-	GhostSprite.setTextureRect(sf::IntRect(startpoint,0,48,32));
-	// WOULD CREATE A SEPERATE SPAWN FUNCTION LATER
+	for(int i=0;i<8; i++){
+		GhostSprite[i].setTexture(GhostTexture);
+	}
+
 
 	//creating level array
 	lvl = new char* [height];
@@ -294,24 +284,32 @@ int main()
 	}
 
 	lvl[6][0]='#';lvl[6][1]='#';lvl[6][2]='#';lvl[6][3]='#';lvl[6][17]='#';lvl[6][16]='#';lvl[6][15]='#';lvl[6][14]='#';
-	lvl[9][5]='#';
-	lvl[10][5]='#';lvl[10][6]='#';lvl[11][7]='#';lvl[11][8]='#';lvl[11][9]='#';lvl[11][10]='#';lvl[11][11]='#';lvl[11][12]='#';
-
+	lvl[8][5]='#';lvl[8][6]='#';lvl[8][7]='#';lvl[8][8]='#';lvl[8][9]='#';lvl[8][10]='#';lvl[8][11]='#';lvl[8][12]='#';
 	for(int i=0; i<18; i++){
 		lvl[0][i]='#'; lvl[13][i]='#';
+	}
+	for(int j=0; j<14; j++){
+		lvl[j][0]='#'; lvl[j][17]='#';  /////ILLEGAL MOVE
+	}
+
+	
+	int spawncandidates[100][2];
+	int candidatesavailable=spawn(lvl, spawncandidates, height, width);
+	for(int i=0; i<8; i++){
+		int random_coordinate=rand()%(candidatesavailable);
+		ghost_y[i]=spawncandidates[random_coordinate][0]*64;
+		ghost_x[i]=spawncandidates[random_coordinate][1]*64;
 	}
 	Event ev;
 	//main loop
 	while (window.isOpen())
 	{
-
 		while (window.pollEvent(ev))
 		{
 			if (ev.type == Event::Closed) 
 			{
 				window.close();
 			}
-
 			if (ev.type == Event::KeyPressed)
 			{
 			}
@@ -334,38 +332,40 @@ int main()
 		Collision(player_x,player_y, player_offset_x, player_offset_y, player_velocityY, isJumping, onGround, player_speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, up_collide,left_collide,right_collide, lvl, PlayerHeight, PlayerWidth, cell_size);
 		//Positioning (might create a separate function later)
 		if(player_direction==true){
-			PlayerSprite.setScale(3,3);		
-			PlayerSprite.setPosition(player_x, player_y);
+			PlayerSprite.setScale(3,3);	PlayerSprite.setPosition(player_x, player_y);
 		}
 		else{
-			PlayerSprite.setScale(-3,3);		
-			PlayerSprite.setPosition(player_x+PlayerWidth, player_y);
+			PlayerSprite.setScale(-3,3); PlayerSprite.setPosition(player_x+PlayerWidth, player_y);
 		}
 
 
 		// FOR GHOST (sample movement for now)		
-		frame++; 
-		GhostSprite.setTextureRect(sf::IntRect(startpoint,0,48,32));
-
-		if(frame>30){
-			startpoint+=50; 
-			if(startpoint>=50*4){
-				startpoint=0; 
+		for(int i=0; i<8; i++){
+			frame[i]++; 
+			GhostSprite[i].setTextureRect(sf::IntRect(startpoint[i],0,48,32));
+			if(frame[i]>30){
+				startpoint[i]+=50; 
+				if(startpoint[i]>=50*4){
+					startpoint[i]=0; 
+				}
+				frame[i]=0;
 			}
-			frame=0;
-		}
-		Sprite_gravity(lvl,ghost_offset_y,ghost_velocityY,onGround,gravity,isJumping, terminal_Velocity, ghost_x, ghost_y, cell_size, GhostHeight, GhostWidth);
-		ghost_movement(ev, lvl, ghost_x, ghost_y, ghost_offset_x, ghost_offset_y, ghost_velocityY, ghost_speed, jumpStrength, onGround, ghost_direction, GhostHeight, GhostWidth, cell_size, GhostState);
-		if(ghost_direction==true){
-			GhostSprite.setScale(3,3);		
-			GhostSprite.setPosition(ghost_x, ghost_y);
-		}
-		else{
-			GhostSprite.setScale(-3,3);		
-			GhostSprite.setPosition(ghost_x+GhostWidth, ghost_y);
+			Sprite_gravity(lvl,ghost_offset_y[i],ghost_velocityY[i],onGround,gravity,isJumping, terminal_Velocity, ghost_x[i], ghost_y[i], cell_size, GhostHeight, GhostWidth);
+					cout << "isJumping: " << isJumping << " velocityY: " << player_velocityY << " onGround: " << onGround << endl;
+
+			ghost_movement(ev, lvl, ghosttimer[i], ghost_x[i], ghost_y[i], ghost_offset_x[i], ghost_offset_y[i], ghost_velocityY[i], ghost_speed, jumpStrength, onGround, ghost_direction[i], GhostHeight, GhostWidth, cell_size, GhostState[i]);
+			if(ghost_direction[i]==true){
+				GhostSprite[i].setScale(3,3);		
+				GhostSprite[i].setPosition(ghost_x[i], ghost_y[i]);
+			}
+			else{
+				GhostSprite[i].setScale(-3,3);		
+				GhostSprite[i].setPosition(ghost_x[i]+GhostWidth, ghost_y[i]);
+			}
+			window.draw(GhostSprite[i]);
 		}
 
-		window.draw(PlayerSprite); window.draw(GhostSprite);
+		window.draw(PlayerSprite); 
 		window.display();
 }
 
