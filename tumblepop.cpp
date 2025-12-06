@@ -32,7 +32,7 @@ void display_level(RenderWindow& window, char**lvl, Texture& bgTex,Sprite& bgSpr
 
 }
 	
-void Sprite_gravity(char** lvl, float& offset_y, float& velocityY, bool& onGround, bool& go_down, const float& gravity, bool& isJumping, float& terminal_Velocity, float& x, float& y, const int cell_size, int& Sprite_height, int& Sprite_width)
+void Sprite_gravity(char** lvl, float& offset_y, float& velocityY, bool& onGround, bool& go_down, const float& gravity, bool& isJumping, float& terminal_Velocity, float& x, float& y, const int cell_size, int& Sprite_height, int& Sprite_width, int& State)
 {
 	int insurance=0;
 	if(velocityY==0)//this insurance variable serves when the player is 'onGround'. 
@@ -64,18 +64,22 @@ void Sprite_gravity(char** lvl, float& offset_y, float& velocityY, bool& onGroun
 
 	if (!onGround)
 	{		
+		if(isJumping) 
+			State=3;
+		else 
+			State=6;
 		velocityY += gravity;
 		if (velocityY >= terminal_Velocity) velocityY = terminal_Velocity;
 	}
 	else
 	{
-		
 		isJumping=false;
 		velocityY = 0;
+		State=1;
 	}
 }
 
-void wallCollision(float& x,float& y, float& offset_x, float& offset_y, float& velocityY, bool& isJumping, bool& onGround,float& speed,char& bottom_left,char& left_mid,char&  top_left,char&  top_right, char& right_mid, char& bottom_right, char& bottom_mid, bool& up_colllide, bool& left_collide, bool& right_collide, bool& mid_collide, char** lvl, int& Pheight, int& Pwidth, const int cell_size){
+void wallCollision(float& x,float& y, float& offset_x, float& offset_y, float& velocityY, bool& isJumping, bool& onGround,float& speed,char& bottom_left,char& left_mid,char&  top_left,char&  top_right, char& right_mid, char& bottom_right, char& bottom_mid, bool& up_colllide, bool& left_collide, bool& right_collide, bool& mid_collide, char** lvl, int& Pheight, int& Pwidth, const int cell_size, int& PlayerState){
 	left_collide=false;
 	right_collide=false;
 	mid_collide=false;
@@ -103,15 +107,19 @@ void wallCollision(float& x,float& y, float& offset_x, float& offset_y, float& v
 	}
 	if(onGround||isJumping)
 		x+=offset_x;
+		if(offset_x!=0)
+		PlayerState=2; // 2=Walking on ground
+	else if(onGround)
+		PlayerState=1;
 }
 
-void movement_player(Event& ev, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& isJumping, bool& onGround, bool& go_down, int& counter_go_down, bool& direction, int& vaccumframe, int startpoint_vaccum){
+void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& isJumping, bool& onGround, bool& go_down, int& counter_go_down, bool& direction, int& updownvaccum, int& vaccumframe, int& startpoint_vaccum, int& PlayerState){
 	
 	offset_x=0;
 	offset_y=0;
 
 	if(Keyboard::isKeyPressed(Keyboard::Left)){
-		offset_x=-speed;	
+		offset_x=-speed;
 		direction=true;
 	}
 	if(Keyboard::isKeyPressed(Keyboard::Right)){
@@ -119,8 +127,9 @@ void movement_player(Event& ev, float& x, float& y, float& offset_x, float& offs
 		direction=false;
 	}
 	if(Keyboard::isKeyPressed(Keyboard::Down)&&onGround){
-		// Change player state
+		PlayerState=4;
 		if(Keyboard::isKeyPressed(Keyboard::X)&&onGround){
+			PlayerState=6;
 			onGround=false; go_down=1;
 		}
 		
@@ -129,26 +138,23 @@ void movement_player(Event& ev, float& x, float& y, float& offset_x, float& offs
 		velocityY=jumpStrength;
 		isJumping=true;
 	}
+	vaccumOn=0;
 	if(Keyboard::isKeyPressed(Keyboard::Z)){
-		// GhostSprite[i].setTextureRect(sf::IntRect(startpoint_vaccum,0,48,32));
-		// if(vaccumframe>5){
-		// 	startpoint_vaccum+=50; 
-		// 	if(startpoint_vaccum>=50*4){
-		// 		startpoint[i]=0; 
-		// 	}
-		// 	vaccumframe=0;
-		// }
-
+		vaccumOn=1;
+		vaccumframe++;
+		Vaccum.setTextureRect(sf::IntRect(startpoint_vaccum,0,48,32));
+		if(vaccumframe>5){
+			startpoint_vaccum+=48; 
+			if(startpoint_vaccum>=48*5){
+				vaccumframe=0; startpoint_vaccum=0;
+			}
+		}
 	}
-			// GhostSprite[i].setTextureRect(sf::IntRect(startpoint[i],0,48,32));
-			// if(frame[i]>15){
-			// 	startpoint[i]+=50; 
-			// 	if(startpoint[i]>=50*4){
-			// 		startpoint[i]=0; 
-			// 	}
-			// 	frame[i]=0;
-			// }
 
+	if(Keyboard::isKeyPressed(Keyboard::W)){
+		up
+	}
+			
 	if(go_down==1){
 		counter_go_down++;
 		if( counter_go_down>15){ counter_go_down=0; go_down=0;} //this ensures that the go down variable is initialized only for 15 frames (enough to go down block)
@@ -158,6 +164,175 @@ void movement_player(Event& ev, float& x, float& y, float& offset_x, float& offs
 	
 }
 
+void Suck(int& BotState, int bot_type, int bot_index, int& nextinbag, int bag_bot_type[], int bagbot_x[], int bagbot_y[], int bag_bot_index[], int vaccumpositionX, int vaccumpositionY, int direction, float& bot_x, float& bot_y, int suck_distance){
+	int DistanceX, DistanceY;
+	if(vaccumpositionX>bot_x) DistanceX=vaccumpositionX-bot_x;
+	else DistanceX=bot_x-vaccumpositionX;
+	if(vaccumpositionY>=bot_y) DistanceY=vaccumpositionY-bot_y;
+	else DistanceY=bot_y-vaccumpositionY;
+	
+	if(direction){
+		if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
+			BotState=3;
+			bot_x+=7;
+		}
+		else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
+			BotState=3;
+			bot_x+=7;
+		}
+	}
+	else{
+		if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
+			bot_x-=7;
+			BotState=3;
+		}
+		else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
+			bot_x-=7;
+			BotState=3;
+		}
+	}
+
+	if(BotState==3&&DistanceY<60){
+		if(nextinbag < 3){
+			BotState=4;
+			bag_bot_type[nextinbag]=bot_type;
+			bag_bot_index[nextinbag]=bot_index;
+			bagbot_x[nextinbag]=bot_x=0;
+			bagbot_y[nextinbag]=bot_y=0;
+			nextinbag++;
+		}
+	}
+}
+
+void Release(int& nextinbag, int bag_bot_type[], int bag_bot_index[], int GhostState[], int SkeletonState[], float ghost_throw_velocity_x[], float ghost_throw_velocity_y[], float skeleton_throw_velocity_x[], float skeleton_throw_velocity_y[], bool player_direction){
+	if (Keyboard::isKeyPressed(Keyboard::S) && nextinbag > 0)
+	{
+		int last_type = bag_bot_type[nextinbag-1];
+		int last_index = bag_bot_index[nextinbag-1];
+		if(last_type == 0) {
+			GhostState[last_index] = 5;
+			ghost_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
+			ghost_throw_velocity_y[last_index] = -15;  // Throw upward
+		}
+		else if(last_type == 1) {
+			SkeletonState[last_index] = 5;
+			skeleton_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
+			skeleton_throw_velocity_y[last_index] = -15;  // Throw upward
+		}
+		nextinbag--;
+	}
+	else if (Keyboard::isKeyPressed(Keyboard::A))
+	{
+		for(int i=0; i<nextinbag; i++){
+			if(bag_bot_type[i] == 0) {
+				GhostState[bag_bot_index[i]] = 5;
+				ghost_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
+				ghost_throw_velocity_y[bag_bot_index[i]] = -15;
+			}
+			else if(bag_bot_type[i] == 1) {
+				SkeletonState[bag_bot_index[i]] = 5;
+				skeleton_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
+				skeleton_throw_velocity_y[bag_bot_index[i]] = -15;
+			}
+		}
+		nextinbag=0;
+	}
+
+}
+
+// ================================================================================
+
+int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& throw_velocity_y, char** lvl, const int cell_size, int bot_height, int bot_width, const int height, const int width, const float gravity){
+	// Check collision with walls and apply rebound
+	// bot_x, bot_y: current position of thrown bot
+	// throw_velocity_x, throw_velocity_y: velocity of thrown bot
+	// Returns: 1 if collision happened (bot hit floor), 0 otherwise
+	
+	// Apply gravity to thrown bot
+	// throw_velocity_y += gravity;
+	
+	// Update position
+	// Check if position is out of bounds (hit floor)
+	if(bot_y + bot_height >= height * cell_size) {
+		return 1; // Hit floor, stop throwing
+	}
+	
+	// Clamp to screen bounds on X axis with rebound
+	if(bot_x < 0) {
+		bot_x = 0;
+		throw_velocity_x *= -0.8; // Rebound with energy loss
+	}
+	if(bot_x + bot_width > width * cell_size) {
+		bot_x = width * cell_size - bot_width;
+		throw_velocity_x *= -0.8; // Rebound with energy loss
+	}
+	
+	// Check collision with environment blocks ('#')
+	// Check multiple points on the bot's body for accurate collision
+	int bot_cell_left = (int)(bot_x + bot_width / 4) / cell_size;
+	int bot_cell_right = (int)(bot_x + bot_width - bot_width / 4) / cell_size;
+	int bot_cell_mid = (int)(bot_x + bot_width / 2) / cell_size;
+	
+	int bot_cell_top = (int)(bot_y) / cell_size;
+	int bot_cell_bottom = (int)(bot_y + bot_height) / cell_size;
+	int bot_cell_mid_y = (int)(bot_y + bot_height / 2) / cell_size;
+	
+	// Ensure indices are within bounds
+	if(bot_cell_left < 0) bot_cell_left = 0;
+	if(bot_cell_left >= width) bot_cell_left = width - 1;
+	if(bot_cell_right >= width) bot_cell_right = width - 1;
+	if(bot_cell_mid >= width) bot_cell_mid = width - 1;
+	if(bot_cell_top < 0) bot_cell_top = 0;
+	if(bot_cell_top >= height) bot_cell_top = height - 1;
+	if(bot_cell_bottom >= height) bot_cell_bottom = height - 1;
+	if(bot_cell_mid_y >= height) bot_cell_mid_y = height - 1;
+	
+	// Collision from bottom (floor/platform)
+	if(lvl[bot_cell_bottom][bot_cell_left] == '#' || 
+	   lvl[bot_cell_bottom][bot_cell_mid] == '#' || 
+	   lvl[bot_cell_bottom][bot_cell_right] == '#'||(bot_cell_bottom>850)) {
+		throw_velocity_x*=0.8;
+		throw_velocity_y *= -0.8; // Rebound with energy loss
+		bot_y = bot_cell_bottom * cell_size - bot_height;
+	}
+	
+	if(throw_velocity_y > -2 && throw_velocity_y < 2 && throw_velocity_x>-4 && throw_velocity_x<4) {
+		return 1; // Stop throwing if velocity is too low
+	}
+	// Collision from top (ceiling)
+	if(bot_y <= 0|| (lvl[bot_cell_top][bot_cell_left] == '#' || 
+	   lvl[bot_cell_top][bot_cell_mid] == '#' || 
+	   lvl[bot_cell_top][bot_cell_right] == '#')) {
+		throw_velocity_y *= -0.8; // Rebound with energy loss
+		throw_velocity_x*=0.8;
+		bot_y = (bot_cell_top + 1) * cell_size;
+	}
+	
+	// Collision from left
+	if(bot_x<= 0 && lvl[bot_cell_mid_y][bot_cell_left] == '#') {
+		throw_velocity_x *= -0.5; // Rebound with energy loss
+		bot_x = (bot_cell_left + 1) * cell_size;
+	}
+	
+	// Collision from right
+	if(bot_x+ bot_width>=width && lvl[bot_cell_mid_y][bot_cell_right] == '#') {
+		throw_velocity_x *= -0.5; // Rebound with energy loss
+		bot_x = bot_cell_right * cell_size - bot_width;
+	}
+	bot_x += throw_velocity_x;
+	bot_y += throw_velocity_y;
+	
+	
+	return 0; // No floor collision yet
+}
+
+void BeingThrown(){
+	// This function is now a stub - actual throwing logic should be called from main loop
+	// with proper per-bot tracking
+	return;
+}
+
+
 void ghost_movement(Event& ev, char** lvl, int& timer, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround, bool& direction, int& height, int& width, const int cell_size, int& GhostState, int& Randomizer){
 	
 	if(timer==0)
@@ -166,7 +341,7 @@ void ghost_movement(Event& ev, char** lvl, int& timer, float& x, float& y, float
 		GhostState=1; // looking around
 	}
 	else{
-		GhostState=0; // normal movement
+		GhostState=2; // normal movement
 	}
 	
 	if(GhostState==1){
@@ -238,23 +413,23 @@ void skeleton_movement(Event& ev, char** lvl, int& timer, float& x, float& y, fl
 	}
 	else if(Randomizer<50)
 	{
-		SkeletonState=2; // Jump
+		SkeletonState=7; // Jump  //////////WHERE IS LOOK UP BEFORE JUMP
 		
 	}
 	else
-		SkeletonState=0; // walk
+		SkeletonState=2; // walk
 
 	
 	if(SkeletonState==1){
 		timer++; if(timer>60) timer=0;
 		return;  // it will look around for some time and do nothing 
 	}
-	else if(SkeletonState==2){
+	else if(SkeletonState==7){
 		// timer++; if(timer>5) timer=0;
 		if(onGround)
 		jumpcheck(lvl, x, y, offset_x, offset_y, velocityY, jumpStrength, isJumping, onGround, go_down, cell_size, height, width, direction);
 	}
-	else if(SkeletonState==0&&onGround){
+	else if(SkeletonState==2&&onGround){
 	timer++; if(timer>360) timer=0;
 	offset_x=0;
 	offset_y=0;
@@ -354,9 +529,53 @@ void Collision(Sprite& PlayerSprite, bool& invincibility, int& lives, float& pla
 	}
 }
 
-void GhostSet(RenderWindow& window, char** lvl, Event& ev, Sprite GhostSprite[8], int frame[8], int ghosttimer[8], float ghost_x[8], float ghost_y[8], float ghost_offset_x[8] ,float ghost_offset_y[8], float ghost_velocityY[8], float ghost_speed, const float jumpStrength, bool& onGround, bool ghost_direction[8], int& GhostHeight, int& GhostWidth, const int cell_size, int GhostState[8], float& terminal_Velocity, const float gravity, int startpoint[8], int Randomizer[8])
+void b2bCollision(int& Bot1State, int& Bot2State, float& bot1_x, float& bot1_y, int b1_height, int b1_width, float& bot2_x, float& bot2_y, int b2_height, int b2_width){
+		if(bot1_x<=bot2_x&&bot1_y<=bot2_y){
+			if((bot2_x-bot1_x)<b1_width&&(bot2_y-bot1_y)<b1_height){
+				// bot1_x=100; bot1_y=640; invincibility=1; lives--;
+				if(Bot2State!=5&&Bot2State!=4){
+				Bot1State=0; Bot2State=0;
+				bot1_y=0; bot2_y=0;
+				bot1_x=0; bot2_x=0;}
+			}
+		}
+		else if(bot1_x>bot2_x && bot1_y<bot2_y){
+			if((bot1_x-bot2_x)<b2_width && (bot2_y-bot1_y)<b1_height){
+				// bot1_x=100; bot1_y=640;invincibility=1; lives--;
+				if(Bot2State!=5&&Bot2State!=4){
+				Bot1State=0; Bot2State=0;
+				bot1_y=0; bot2_y=0;
+				bot1_x=0; bot2_x=0;}
+			}
+		}
+
+		if(bot1_x<bot2_x && bot1_y>bot2_y){
+			if((bot2_x-bot1_x)<b1_width && (bot1_y-bot2_y)<b2_height){
+				// bot1_x=100; bot1_y=640;invincibility=1;lives--;
+				if(Bot2State!=5&&Bot2State!=4){
+				Bot1State=0; Bot2State=0;
+				bot1_y=0; bot2_y=0;
+				bot1_x=0; bot2_x=0;}
+			}
+		}
+
+		if(bot1_x>=bot2_x && bot1_y>=bot2_y){
+			if((bot1_x-bot2_x)<b2_width && (bot1_y-bot2_y)<b2_height){
+				// bot1_x =100; bot1_y=640;invincibility=1;lives--;
+				if(Bot2State!=5&&Bot2State!=4){
+				Bot1State=0; Bot2State=0;
+				bot1_x=0; bot2_x=0;
+				bot1_y=0; bot2_y=0;
+			}
+			}
+		}
+	
+}
+
+void GhostSet(RenderWindow& window, char** lvl,bool ghost_sucked[8], Event& ev, Sprite GhostSprite[8], int frame[8], int ghosttimer[8], float ghost_x[8], float ghost_y[8], float ghost_offset_x[8] ,float ghost_offset_y[8], float ghost_velocityY[8], float ghost_speed, const float jumpStrength, bool& onGround, bool ghost_direction[8], int& GhostHeight, int& GhostWidth, const int cell_size, int GhostState[8], float& terminal_Velocity, const float gravity, int startpoint[8], int Randomizer[8])
 {
 for(int i=0; i<8; i++){
+		
 			bool dummy_onGround=0; bool dummy_isJumping=0; bool dummy_go_down=0;
 			frame[i]++; 
 			GhostSprite[i].setTextureRect(sf::IntRect(startpoint[i],0,48,32));
@@ -367,8 +586,11 @@ for(int i=0; i<8; i++){
 				}
 				frame[i]=0;
 			}
-			Sprite_gravity(lvl,ghost_offset_y[i],ghost_velocityY[i],dummy_onGround, dummy_go_down, gravity, dummy_isJumping, terminal_Velocity, ghost_x[i], ghost_y[i], cell_size, GhostHeight, GhostWidth);
+			if(GhostState[i]!=4&&GhostState[i]!=0){
+				if(GhostState[i]!=5){
+			Sprite_gravity(lvl,ghost_offset_y[i],ghost_velocityY[i],dummy_onGround, dummy_go_down, gravity, dummy_isJumping, terminal_Velocity, ghost_x[i], ghost_y[i], cell_size, GhostHeight, GhostWidth, GhostState[i]);
 			ghost_movement(ev, lvl, ghosttimer[i], ghost_x[i], ghost_y[i], ghost_offset_x[i], ghost_offset_y[i], ghost_velocityY[i], ghost_speed, jumpStrength, dummy_onGround, ghost_direction[i], GhostHeight, GhostWidth, cell_size, GhostState[i], Randomizer[i]);
+				}
 			if(ghost_direction[i]==true){
 				GhostSprite[i].setScale(3,3);		
 				GhostSprite[i].setPosition(ghost_x[i], ghost_y[i]);
@@ -378,11 +600,15 @@ for(int i=0; i<8; i++){
 				GhostSprite[i].setScale(-3,3);		
 				GhostSprite[i].setPosition(ghost_x[i]+GhostWidth, ghost_y[i]);
 			}
-			window.draw(GhostSprite[i]);
+			// std::cout<<GhostState[i];
+				window.draw(GhostSprite[i]);
+		}
+			else
+				GhostSprite[i].setPosition(0,0);
 		}
 }
 		
-void SkeletonSet(RenderWindow& window,char** lvl, Event& ev, Sprite SkeletonSprite[4], int frame[4], int skeletontimer[4], int counter_go_down[4], float skeleton_x[4], float skeleton_y[4], float skeleton_offset_x[4] , float skeleton_offset_y[4], float skeleton_velocityY[4], float skeleton_speed, const float jumpStrength, bool isJumping[4],  bool onGround[4], bool go_down[4],bool skeleton_direction[4], int& SkeletonHeight, int&  SkeletonWidth, const int  cell_size, int SkeletonState[4], float& terminal_Velocity , const float gravity, int startpoint[4], int Randomizer[4])
+void SkeletonSet(RenderWindow& window,char** lvl, bool skeleton_sucked[4], Event& ev, Sprite SkeletonSprite[4], int frame[4], int skeletontimer[4], int counter_go_down[4], float skeleton_x[4], float skeleton_y[4], float skeleton_offset_x[4] , float skeleton_offset_y[4], float skeleton_velocityY[4], float skeleton_speed, const float jumpStrength, bool isJumping[4],  bool onGround[4], bool go_down[4],bool skeleton_direction[4], int& SkeletonHeight, int&  SkeletonWidth, const int  cell_size, int SkeletonState[4], float& terminal_Velocity , const float gravity, int startpoint[4], int Randomizer[4])
 {
 	for(int i = 0; i < 4; i++){
 	frame[i]++; 
@@ -394,12 +620,15 @@ void SkeletonSet(RenderWindow& window,char** lvl, Event& ev, Sprite SkeletonSpri
 		}
 		frame[i] = 0;
 	}
+	if(SkeletonState[i]!=4&&SkeletonState[i]!=0){
+		if(SkeletonState[i]!=5){
 	skeleton_movement(ev,lvl,skeletontimer[i],skeleton_x[i],skeleton_y[i],skeleton_offset_x[i],skeleton_offset_y[i],skeleton_velocityY[i],skeleton_speed, isJumping[i],jumpStrength,onGround[i],skeleton_direction[i],SkeletonHeight,SkeletonWidth,cell_size,SkeletonState[i], go_down[i], Randomizer[i]);
 	if(go_down[i]==1){
 		counter_go_down[i]++;
 		if( counter_go_down[i]>15){ counter_go_down[i]=0; go_down[i]=0;} //this ensures that the go down variable is initialized only for 15 frames (enough to go down block)
 	}
-	Sprite_gravity(lvl,skeleton_offset_y[i],skeleton_velocityY[i],onGround[i],go_down[i],gravity, isJumping[i],terminal_Velocity,skeleton_x[i],skeleton_y[i],cell_size,SkeletonHeight,SkeletonWidth);
+	Sprite_gravity(lvl,skeleton_offset_y[i],skeleton_velocityY[i],onGround[i],go_down[i],gravity, isJumping[i],terminal_Velocity,skeleton_x[i],skeleton_y[i],cell_size,SkeletonHeight,SkeletonWidth, SkeletonState[i]);
+}
 	if(skeleton_direction[i] == true){
 		SkeletonSprite[i].setScale(3, 3);
 		SkeletonSprite[i].setPosition(skeleton_x[i], skeleton_y[i]-40);
@@ -408,7 +637,11 @@ void SkeletonSet(RenderWindow& window,char** lvl, Event& ev, Sprite SkeletonSpri
 		SkeletonSprite[i].setScale(-3, 3);
 		SkeletonSprite[i].setPosition(skeleton_x[i] + SkeletonWidth, skeleton_y[i]-40);
 	}
-	window.draw(SkeletonSprite[i]);
+		window.draw(SkeletonSprite[i]);
+}
+	else
+		SkeletonSprite[i].setPosition(0,0);
+		
 }
 }
 
@@ -441,15 +674,29 @@ int main()
 	//PLAYER data
 	float player_x = 80;	float player_y = 640;
 	bool player_direction = true; //true is left, false is right
-	float player_speed = 5; int lives=3; int vaccumframe=0; int startpoint_vaccum=0;
-	
+	int updownvaccum;
+	float player_speed = 5; int lives=100;
+
 	int PlayerHeight = 102;	int PlayerWidth = 96;
-	bool invincibility=0; int invincibilitytimer=0;
 	float player_offset_x = 0;	float player_offset_y = 0;
 	float player_velocityY = 0;
-	
+
 	bool up_collide = false;	bool left_collide = false;	bool right_collide = false; 
 	bool mid_collide = false;
+	
+	
+	int sizeofbag=3;
+	int vaccumframe=0; int startpoint_vaccum=0; bool vaccumOn=0;
+	int vaccumpositionX=0; int vaccumpositionY=0;
+	int suck_distance=48*3; int total_sucked=0;
+	bool invincibility=0; int invincibilitytimer=0;
+	int SCOUNTER=0;
+	// Track bots in bag: store {bot_type, index} where bot_type: 0=ghost, 1=skeleton
+	int bag_bot_type[sizeofbag]={-1}; 
+	int bag_bot_index[sizeofbag]={-1}; 
+	int bagbot_x[sizeofbag]={-1};
+	int bagbot_y[sizeofbag]={-1};
+	int nextinbag=0;
 
 	int PlayerState=0; //0=idle, 1=running, 2=jumping //means what the player is doing currently. I gave this just as example
 
@@ -459,7 +706,7 @@ int main()
 	int counter_go_down=0;
 	//GHOST data
 	float ghost_x[8] = {450};	float ghost_y[8] = {300};
-	bool ghost_direction[8]={true};
+	bool ghost_direction[8]={true}; bool ghost_sucked[8]={0};
 	float ghost_speed=2;
 
 	int GhostHeight=102;	int GhostWidth=96;
@@ -469,11 +716,18 @@ int main()
 	int ghost_frame[8]={0};
 	int ghosttimer[8]={0};
 	int ghost_startpoint[8]={0};
-	int GhostState[8]={0}; //0=normal, 1=looking around,
+	int GhostState[8]={0}; 
+	for( int i=0; i<8; i++){
+		GhostState[i]=2;
+	}
 	int ghost_randomizer[8]={0};
+	
+	float ghost_throw_velocity_x[8] = {0};  // Horizontal throw velocity
+	float ghost_throw_velocity_y[8] = {0};  // Vertical throw velocity
+	
 	//Skeleton data
 	float skeleton_x[4] = {450};	float skeleton_y[4] = {300};
-	bool skeleton_direction[4]={true};
+	bool skeleton_direction[4]={true}; bool skeleton_sucked[4]={0};
 	float skeleton_speed=2;
 
 	int SkeletonHeight=102;	int SkeletonWidth=96;
@@ -483,14 +737,20 @@ int main()
 	int skeleton_frame[4]={0};
 	int skeletontimer[4]={0};
 	int skeleton_startpoint[4]={0};
-	int SkeletonState[4]={0}; //0=normal, 1=looking around,
+	int SkeletonState[4]={2}; 
+	for( int i=0; i<4; i++){
+		SkeletonState[i]=2;
+	}
 	bool skeleton_onGround[4]={0};
 	bool skeleton_isJumping[4]={0};
 	bool skeleton_go_down[4]={0};
 	int skeleton_counter_go_down[4]={0};
 	int skeleton_randomizer[4]={0};
 	
+	float skeleton_throw_velocity_x[4] = {0};
+	float skeleton_throw_velocity_y[4] = {0};
 	
+
 
 	//EXTRA VARIABLES
 	char top_left = '\0';	char top_right = '\0';	char top_mid = '\0';
@@ -508,7 +768,7 @@ int main()
 	//PLAYER SPRITE
 	Texture PlayerTexture;	Sprite PlayerSprite; Texture VaccumText; Sprite Vaccum;
 	if(!(PlayerTexture.loadFromFile("Data/player.png"))){ cout<<"Error to load Player Texture\n"; return -1;} //Isme mene texture to upload bhi kia aur ye bhi check kia if the file loaded successfully
-	if(!(VaccumText.loadFromFile("Data/Vaccum.png"))){ cout<<"Error to load Vaccuum\n"; return -1;}
+	if(!(VaccumText.loadFromFile("Data/Vaccum.png"))){ cout<<"Error to load Vaccum\n"; return -1;}
 	PlayerSprite.setTexture(PlayerTexture); 	Vaccum.setTexture(VaccumText); 
 
 	//	GHOST SPRITE
@@ -571,7 +831,7 @@ int main()
 			}
 		}
 
-		if (Keyboard::isKeyPressed(Keyboard::Escape))
+		if (Keyboard::isKeyPressed(Keyboard::RShift))
 		{
 			window.close();
 		}
@@ -579,26 +839,152 @@ int main()
 		display_level(window, lvl, bgTex, bgSprite, blockTexture, blockSprite, height, width, cell_size);
 
 		// FOR PLAYER
-		Sprite_gravity(lvl,player_offset_y,player_velocityY,onGround, go_down, gravity, isJumping, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth);
-		movement_player(ev, player_x, player_y, player_offset_x, player_offset_y, player_velocityY, player_speed, jumpStrength, isJumping, onGround, go_down, counter_go_down, player_direction, vaccumframe, startpoint_vaccum);
-		wallCollision(player_x,player_y, player_offset_x, player_offset_y, player_velocityY, isJumping, onGround, player_speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, bottom_mid, up_collide,left_collide,right_collide, mid_collide, lvl, PlayerHeight, PlayerWidth, cell_size);
-		if(player_direction==true){		PlayerSprite.setScale(3,3);	PlayerSprite.setPosition(player_x, player_y+2);	}
-		else{	PlayerSprite.setScale(-3,3); PlayerSprite.setPosition(player_x+PlayerWidth, player_y+2);	}
-		window.draw(PlayerSprite); 
+
+		Sprite_gravity(lvl,player_offset_y,player_velocityY,onGround, go_down, gravity, isJumping, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, PlayerState);
+		movement_player(ev, Vaccum, vaccumOn, player_x, player_y, player_offset_x, player_offset_y, player_velocityY, player_speed, jumpStrength, isJumping, onGround, go_down, counter_go_down, player_direction,updownvaccum, vaccumframe, startpoint_vaccum, PlayerState);
+		wallCollision(player_x,player_y, player_offset_x, player_offset_y, player_velocityY, isJumping, onGround, player_speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, bottom_mid, up_collide,left_collide,right_collide, mid_collide, lvl, PlayerHeight, PlayerWidth, cell_size, PlayerState);
+		// Release(nextinbag, bag_bot_type, bag_bot_index, GhostState, SkeletonState);
+		if(player_direction==true){
+				vaccumpositionX=player_x-48*3; vaccumpositionY= player_y+12;
+				PlayerSprite.setScale(3,3);	PlayerSprite.setPosition(player_x, player_y+2);
+				Vaccum.setScale(3,3); Vaccum.setPosition(vaccumpositionX, vaccumpositionY);
+				}
+		else{
+			vaccumpositionX=player_x+48*3; vaccumpositionY= player_y+12;			
+			PlayerSprite.setScale(-3,3); PlayerSprite.setPosition(player_x+PlayerWidth, player_y+2);
+			Vaccum.setScale(-3,3);  Vaccum.setPosition(vaccumpositionX+PlayerWidth, vaccumpositionY);	
+		}
+		window.draw(PlayerSprite); 	
+
+		for(int i = 0; i<4; i++){
+			if(SkeletonState[i]==5) {
+				for(int j=0; j<4; j++) //j!=i
+				// if(i!=j)
+					b2bCollision(SkeletonState[i], SkeletonState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth);
+				for(int j=0;j<8;j++)
+				// if(i!=j)
+					b2bCollision(SkeletonState[i], GhostState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth);
+
+				// Being thrown - handle collision and physics
+				int collision_result = ThrownCollision(
+					skeleton_x[i], skeleton_y[i],
+					skeleton_throw_velocity_x[i], skeleton_throw_velocity_y[i],
+					lvl, cell_size, SkeletonHeight, SkeletonWidth, height, width, gravity
+				);
+				if(collision_result == 1) {
+					SkeletonState[i] = 0;  // Return to normal state
+					skeleton_throw_velocity_x[i] = 0;
+					skeleton_throw_velocity_y[i] = 0;
+				}
+			}
+			else {
+				// Not being thrown - normal collision check
+				if(SkeletonState[i]==4||SkeletonState[i]==0)
+					SkeletonSprite[i].setPosition(0,0);
+				else if(SkeletonState[i]!=3)
+				Collision(PlayerSprite, invincibility, lives, player_x, player_y, PlayerHeight, PlayerWidth, skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth);
+				// Only suck if not in bag (state != 4)
+				if(vaccumOn && SkeletonState[i] != 4&&SkeletonState[i]!=0)
+					Suck(SkeletonState[i], 1, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, skeleton_x[i], skeleton_y[i], suck_distance);
+			}
+		}
+		for(int i = 0; i<8; i++){
+			if(GhostState[i]==5) {
+
+				for(int j=0; j<4; j++) //j!=i
+				if(i!=j)
+					b2bCollision(GhostState[i], SkeletonState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth);
+				for(int j=0;j<8;j++)
+				if(i!=j)
+					b2bCollision(GhostState[i], GhostState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth);
+
+				// Being thrown - handle collision and physics
+				int collision_result = ThrownCollision(
+					ghost_x[i], ghost_y[i],
+					ghost_throw_velocity_x[i], ghost_throw_velocity_y[i],
+					lvl, cell_size, GhostHeight, GhostWidth, height, width, gravity
+				);
+				if(collision_result == 1) {
+					GhostState[i] = 0;  // Return to normal state
+					ghost_throw_velocity_x[i] = 0;
+					ghost_throw_velocity_y[i] = 0;
+				}
+			}
+			else {
+				// Not being thrown - normal collision check
+				if(GhostState[i]==4||GhostState[i]==0)
+					GhostSprite[i].setPosition(0,0);
+				else if(GhostState[i]!=3)
+				Collision(PlayerSprite, invincibility, lives, player_x, player_y, PlayerHeight, PlayerWidth, ghost_x[i], ghost_y[i], GhostHeight, GhostWidth);
+				// Only suck if not in bag (state != 4)
+				if(vaccumOn && GhostState[i] != 4&&GhostState[i]!=0)
+					Suck(GhostState[i], 0, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, ghost_x[i], ghost_y[i], suck_distance);
+			}
+		}
 		//Ghost
-		GhostSet(window, lvl,ev,  GhostSprite,  ghost_frame,  ghosttimer,  ghost_x,  ghost_y,  ghost_offset_x , ghost_offset_y, ghost_velocityY, ghost_speed, jumpStrength, onGround,ghost_direction, GhostHeight, GhostWidth, cell_size, GhostState, terminal_Velocity , gravity, ghost_startpoint, ghost_randomizer);
-		//Skeleton
-		SkeletonSet(window, lvl,ev,  SkeletonSprite,  skeleton_frame,  skeletontimer, skeleton_counter_go_down,  skeleton_x,  skeleton_y,  skeleton_offset_x , skeleton_offset_y, skeleton_velocityY, skeleton_speed, jumpStrength, skeleton_isJumping, skeleton_onGround,  skeleton_go_down, skeleton_direction, SkeletonHeight, SkeletonWidth, cell_size, SkeletonState, terminal_Velocity , gravity, skeleton_startpoint, skeleton_randomizer);
-		for(int i = 0; i<4; i++)
-			Collision( PlayerSprite, invincibility, lives, player_x,  player_y,  PlayerHeight, PlayerWidth,  skeleton_x[i],  skeleton_y[i],  SkeletonHeight,  SkeletonWidth);
-		for(int i = 0; i<8; i++)
-			Collision( PlayerSprite, invincibility, lives, player_x,  player_y,  PlayerHeight, PlayerWidth,  ghost_x[i],  ghost_y[i],  GhostHeight,  GhostWidth);
+		GhostSet(window, lvl, ghost_sucked, ev, GhostSprite, ghost_frame, ghosttimer, ghost_x, ghost_y, ghost_offset_x, ghost_offset_y, ghost_velocityY, ghost_speed, jumpStrength, onGround, ghost_direction, GhostHeight, GhostWidth, cell_size, GhostState, terminal_Velocity, gravity, ghost_startpoint, ghost_randomizer);
+
+		SkeletonSet(window, lvl, skeleton_sucked, ev, SkeletonSprite, skeleton_frame, skeletontimer, skeleton_counter_go_down, skeleton_x, skeleton_y, skeleton_offset_x, skeleton_offset_y, skeleton_velocityY, skeleton_speed, jumpStrength, skeleton_isJumping, skeleton_onGround, skeleton_go_down, skeleton_direction, SkeletonHeight, SkeletonWidth, cell_size, SkeletonState, terminal_Velocity, gravity, skeleton_startpoint, skeleton_randomizer);
+
+				//////////////////////////////////////////////////////////////////////////////////////////////////////////
+		if (Keyboard::isKeyPressed(Keyboard::S) && nextinbag > 0 )
+	{
+		SCOUNTER++;
+		if(SCOUNTER>10) SCOUNTER=0;
+		if(SCOUNTER==1){
+		int last_type = bag_bot_type[nextinbag-1];
+		int last_index = bag_bot_index[nextinbag-1];
 		
+		bagbot_x[nextinbag-1]=vaccumpositionX;
+		bagbot_y[nextinbag-1]=vaccumpositionY;
+		if(last_type == 0) {
+			GhostState[last_index] = 5;
+			ghost_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
+			ghost_throw_velocity_y[last_index] = -5;  // Throw upward
+			ghost_x[last_index]=vaccumpositionX;
+			ghost_y[last_index]=vaccumpositionY-10;
+		}
+		else if(last_type == 1) {
+			SkeletonState[last_index] = 5;
+			skeleton_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
+			skeleton_throw_velocity_y[last_index] = -5;  // Throw upward
+			skeleton_x[last_index]=vaccumpositionX;
+			skeleton_y[last_index]=vaccumpositionY-10;
+		}
+		nextinbag--;
+	}
+	}
+	else if (Keyboard::isKeyPressed(Keyboard::A))
+	{
+		for(int i=0; i<nextinbag; i++){
+		bagbot_x[i]=vaccumpositionX;
+		bagbot_y[i]=vaccumpositionY;
+
+			if(bag_bot_type[i] == 0) {
+				GhostState[bag_bot_index[i]] = 5;
+				ghost_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
+				// ghost_throw_velocity_y[bag_bot_index[i]] = -15;
+			}
+			else if(bag_bot_type[i] == 1) {
+				SkeletonState[bag_bot_index[i]] = 5;
+				skeleton_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
+				// skeleton_throw_velocity_y[bag_bot_index[i]] = -15;
+			}
+		}
+		nextinbag=0;
+	}
+	//////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+		// Death Detection
+
 		if(invincibility==1){
 			invincibilitytimer++;
 			if(invincibilitytimer>100){
-				invincibility=0; invincibilitytimer=0;}
+				invincibility=0; invincibilitytimer=0;
+			}
 		}
+		if(vaccumOn)
+			window.draw(Vaccum); 
 		if(lives==0)	
 			exit(0);
 		// Despawn(player_x, player_y, ghost_x, ghost_y);
