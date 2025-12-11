@@ -31,7 +31,20 @@ void display_level(RenderWindow& window, char**lvl, Texture& bgTex,Sprite& bgSpr
 	}
 
 }
-	
+int levelpromo(int GhostState[], int SkeletonState[]){
+	int promo=1;
+	for(int i=0; i<4; i++){
+		if(SkeletonState[i]!=0){
+			promo=0;
+		}
+	}
+	for(int i=0; i<8; i++){
+		if(GhostState[i]!=0){
+			promo=0;
+		}
+	}
+	return promo;
+}
 void Sprite_gravity(char** lvl, float& offset_y, float& velocityY, bool& onGround, bool& go_down, const float& gravity, bool& isJumping, float& terminal_Velocity, float& x, float& y, const int cell_size, int& Sprite_height, int& Sprite_width, int& State)
 {
 	int insurance=0;
@@ -65,7 +78,7 @@ void Sprite_gravity(char** lvl, float& offset_y, float& velocityY, bool& onGroun
 	if (!onGround)
 	{		
 		if(isJumping) 
-			State=3;
+			State=8;
 		else 
 			State=6;
 		velocityY += gravity;
@@ -113,7 +126,7 @@ void wallCollision(float& x,float& y, float& offset_x, float& offset_y, float& v
 		PlayerState=1;
 }
 
-void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& isJumping, bool& onGround, bool& go_down, int& counter_go_down, bool& direction, int& updownvaccum, int& vaccumframe, int& startpoint_vaccum, int& PlayerState){
+void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& isJumping, bool& onGround, bool& go_down, int& counter_go_down, bool& direction, int& updownvaccum, int& vaccumframe, int& startpoint_vaccum, int& v_startpoint_vaccum,int& PlayerState, bool& throwndown){
 	
 	offset_x=0;
 	offset_y=0;
@@ -142,6 +155,7 @@ void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float&
 	if(Keyboard::isKeyPressed(Keyboard::Z)){
 		vaccumOn=1;
 		vaccumframe++;
+	if(updownvaccum==0){
 		Vaccum.setTextureRect(sf::IntRect(startpoint_vaccum,0,48,32));
 		if(vaccumframe>5){
 			startpoint_vaccum+=48; 
@@ -150,11 +164,25 @@ void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float&
 			}
 		}
 	}
-
-	if(Keyboard::isKeyPressed(Keyboard::W)){
-		up
+	else{
+		Vaccum.setTextureRect(sf::IntRect(3,v_startpoint_vaccum,26,48));
+		if(vaccumframe>5){
+			v_startpoint_vaccum-=48; 
+			if(v_startpoint_vaccum<=0){
+				vaccumframe=0; v_startpoint_vaccum=244;
+			}
+		}	
 	}
-			
+	}
+
+	if(Keyboard::isKeyPressed(Keyboard::W))
+		updownvaccum=1;
+	else if(Keyboard::isKeyPressed(Keyboard::S)){
+		throwndown=1;
+		updownvaccum=-1;
+	}
+	else 
+		updownvaccum=0;
 	if(go_down==1){
 		counter_go_down++;
 		if( counter_go_down>15){ counter_go_down=0; go_down=0;} //this ensures that the go down variable is initialized only for 15 frames (enough to go down block)
@@ -164,43 +192,85 @@ void movement_player(Event& ev, Sprite& Vaccum, bool& vaccumOn, float& x, float&
 	
 }
 
-void Suck(int& BotState, int bot_type, int bot_index, int& nextinbag, int bag_bot_type[], int bagbot_x[], int bagbot_y[], int bag_bot_index[], int vaccumpositionX, int vaccumpositionY, int direction, float& bot_x, float& bot_y, int suck_distance){
+void Suck(int& BotState, int bot_type, int bot_index, int& nextinbag, int bag_bot_type[], int bagbot_x[], int bagbot_y[], int bag_bot_index[], int vaccumpositionX, int vaccumpositionY, int direction, int updownvaccum, int& suckingtime, float& bot_x, float& bot_y, int suck_distance, float player_x, float player_y, int& score){
 	int DistanceX, DistanceY;
 	if(vaccumpositionX>bot_x) DistanceX=vaccumpositionX-bot_x;
 	else DistanceX=bot_x-vaccumpositionX;
 	if(vaccumpositionY>=bot_y) DistanceY=vaccumpositionY-bot_y;
 	else DistanceY=bot_y-vaccumpositionY;
-	
-	if(direction){
-		if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
-			BotState=3;
-			bot_x+=7;
-		}
-		else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
-			BotState=3;
-			bot_x+=7;
-		}
-	}
-	else{
-		if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
-			bot_x-=7;
-			BotState=3;
-		}
-		else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
-			bot_x-=7;
-			BotState=3;
-		}
-	}
+	if(updownvaccum==1||updownvaccum==-1){
 
-	if(BotState==3&&DistanceY<60){
-		if(nextinbag < 3){
-			BotState=4;
-			bag_bot_type[nextinbag]=bot_type;
-			bag_bot_index[nextinbag]=bot_index;
-			bagbot_x[nextinbag]=bot_x=0;
-			bagbot_y[nextinbag]=bot_y=0;
-			nextinbag++;
+	if(player_x>bot_x) DistanceX=player_x-bot_x;
+	else DistanceX=bot_x-player_x;
+		if(updownvaccum==1){
+			if((DistanceY<=suck_distance+100)&&vaccumpositionY>=bot_y&&(DistanceX<10)){
+				suckingtime++;
+				BotState=3;
+			}
 		}
+		else{
+			
+			if((DistanceY<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceX<10)){
+				suckingtime++;
+				BotState=3;
+			}
+		}
+		if(suckingtime>=100){
+			suckingtime=0;
+		if(BotState==3&&DistanceX<60){
+			if(nextinbag < 3){
+				if(bot_type==1)
+					score+=75;
+				else if(bot_type==0)
+					score+=50;
+				BotState=4;
+				bag_bot_type[nextinbag]=bot_type;
+				bag_bot_index[nextinbag]=bot_index;
+				bagbot_x[nextinbag]=bot_x=0;
+				bagbot_y[nextinbag]=bot_y=0;
+				nextinbag++;
+			}
+		}
+	}
+	}	
+	else{
+		if(direction){
+			if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
+				suckingtime++;
+				BotState=3;
+			}
+			else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
+				suckingtime++;
+				BotState=3;
+			}
+		}
+		else{
+			if((DistanceX<=suck_distance)&&vaccumpositionY>=bot_y&&(DistanceY<50)){
+				suckingtime++;
+				BotState=3;
+			}
+			else if((DistanceX<=suck_distance)&&vaccumpositionY<bot_y&&(DistanceY<50)){
+				suckingtime++;
+				BotState=3;
+			}
+		}
+		if(suckingtime>=100){
+			suckingtime=0;
+		if(BotState==3&&DistanceY<60){
+			if(nextinbag < 3){
+				if(bot_type==1)
+					score+=75;
+				else if(bot_type==0)
+					score+=50;
+				BotState=4;
+				bag_bot_type[nextinbag]=bot_type;
+				bag_bot_index[nextinbag]=bot_index;
+				bagbot_x[nextinbag]=bot_x=0;
+				bagbot_y[nextinbag]=bot_y=0;
+				nextinbag++;
+			}
+		}
+	}
 	}
 }
 
@@ -242,22 +312,34 @@ void Release(int& nextinbag, int bag_bot_type[], int bag_bot_index[], int GhostS
 
 // ================================================================================
 
-int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& throw_velocity_y, char** lvl, const int cell_size, int bot_height, int bot_width, const int height, const int width, const float gravity){
-	// Check collision with walls and apply rebound
-	// bot_x, bot_y: current position of thrown bot
-	// throw_velocity_x, throw_velocity_y: velocity of thrown bot
-	// Returns: 1 if collision happened (bot hit floor), 0 otherwise
-	
-	// Apply gravity to thrown bot
-	// throw_velocity_y += gravity;
-	
-	// Update position
-	// Check if position is out of bounds (hit floor)
-	if(bot_y + bot_height >= height * cell_size) {
-		return 1; // Hit floor, stop throwing
+int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& throw_velocity_y, char** lvl, const int cell_size, int bot_height, int bot_width, const int height, const int width, const float gravity, int updownvaccum, int& throwupdowncounter, bool& throwndown){
+
+	if(updownvaccum != 0 && throwupdowncounter == 0) {
+		throwupdowncounter = 1;  // Start the platform ride
 	}
 	
-	// Clamp to screen bounds on X axis with rebound
+	if(throwupdowncounter > 0) {
+		throwupdowncounter++;
+			if(throwndown)
+				bot_y+=10;
+			else 
+				bot_y-=10;
+
+		
+		if(throwupdowncounter > 20) {
+			throwupdowncounter = 0; throwndown=0;
+		}
+		return 0;  //Dont apply normal physics while on platform
+	}
+
+	// Apply gravity to thrown bot
+	throw_velocity_y += gravity;
+	
+	
+	if(bot_y + bot_height >= height * cell_size) {
+		return 1;
+	}
+	
 	if(bot_x < 0) {
 		bot_x = 0;
 		throw_velocity_x *= -0.8; // Rebound with energy loss
@@ -267,8 +349,6 @@ int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& 
 		throw_velocity_x *= -0.8; // Rebound with energy loss
 	}
 	
-	// Check collision with environment blocks ('#')
-	// Check multiple points on the bot's body for accurate collision
 	int bot_cell_left = (int)(bot_x + bot_width / 4) / cell_size;
 	int bot_cell_right = (int)(bot_x + bot_width - bot_width / 4) / cell_size;
 	int bot_cell_mid = (int)(bot_x + bot_width / 2) / cell_size;
@@ -277,7 +357,6 @@ int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& 
 	int bot_cell_bottom = (int)(bot_y + bot_height) / cell_size;
 	int bot_cell_mid_y = (int)(bot_y + bot_height / 2) / cell_size;
 	
-	// Ensure indices are within bounds
 	if(bot_cell_left < 0) bot_cell_left = 0;
 	if(bot_cell_left >= width) bot_cell_left = width - 1;
 	if(bot_cell_right >= width) bot_cell_right = width - 1;
@@ -287,50 +366,41 @@ int ThrownCollision(float& bot_x, float& bot_y, float& throw_velocity_x, float& 
 	if(bot_cell_bottom >= height) bot_cell_bottom = height - 1;
 	if(bot_cell_mid_y >= height) bot_cell_mid_y = height - 1;
 	
-	// Collision from bottom (floor/platform)
 	if(lvl[bot_cell_bottom][bot_cell_left] == '#' || 
 	   lvl[bot_cell_bottom][bot_cell_mid] == '#' || 
 	   lvl[bot_cell_bottom][bot_cell_right] == '#'||(bot_cell_bottom>850)) {
-		throw_velocity_x*=0.8;
-		throw_velocity_y *= -0.8; // Rebound with energy loss
+		throw_velocity_y = 0; 
 		bot_y = bot_cell_bottom * cell_size - bot_height;
 	}
 	
-	if(throw_velocity_y > -2 && throw_velocity_y < 2 && throw_velocity_x>-4 && throw_velocity_x<4) {
-		return 1; // Stop throwing if velocity is too low
+	if( throw_velocity_x>-2 && throw_velocity_x<2) {
+		return 1; 
 	}
-	// Collision from top (ceiling)
 	if(bot_y <= 0|| (lvl[bot_cell_top][bot_cell_left] == '#' || 
 	   lvl[bot_cell_top][bot_cell_mid] == '#' || 
 	   lvl[bot_cell_top][bot_cell_right] == '#')) {
-		throw_velocity_y *= -0.8; // Rebound with energy loss
+		throw_velocity_y *= -1; 
 		throw_velocity_x*=0.8;
 		bot_y = (bot_cell_top + 1) * cell_size;
 	}
 	
-	// Collision from left
 	if(bot_x<= 0 && lvl[bot_cell_mid_y][bot_cell_left] == '#') {
-		throw_velocity_x *= -0.5; // Rebound with energy loss
+		throw_velocity_x *= -0.6; 
 		bot_x = (bot_cell_left + 1) * cell_size;
 	}
 	
-	// Collision from right
 	if(bot_x+ bot_width>=width && lvl[bot_cell_mid_y][bot_cell_right] == '#') {
-		throw_velocity_x *= -0.5; // Rebound with energy loss
+		throw_velocity_x *= -0.6; 
 		bot_x = bot_cell_right * cell_size - bot_width;
 	}
 	bot_x += throw_velocity_x;
 	bot_y += throw_velocity_y;
 	
 	
-	return 0; // No floor collision yet
+	return 0; 
 }
 
-void BeingThrown(){
-	// This function is now a stub - actual throwing logic should be called from main loop
-	// with proper per-bot tracking
-	return;
-}
+
 
 
 void ghost_movement(Event& ev, char** lvl, int& timer, float& x, float& y, float& offset_x, float& offset_y, float& velocityY, float& speed, float jumpStrength, bool& onGround, bool& direction, int& height, int& width, const int cell_size, int& GhostState, int& Randomizer){
@@ -411,9 +481,9 @@ void skeleton_movement(Event& ev, char** lvl, int& timer, float& x, float& y, fl
 	{
 			SkeletonState=1; // look around
 	}
-	else if(Randomizer<50)
+	else if(Randomizer<70)
 	{
-		SkeletonState=7; // Jump  //////////WHERE IS LOOK UP BEFORE JUMP
+		SkeletonState=7; // Jump
 		
 	}
 	else
@@ -529,14 +599,16 @@ void Collision(Sprite& PlayerSprite, bool& invincibility, int& lives, float& pla
 	}
 }
 
-void b2bCollision(int& Bot1State, int& Bot2State, float& bot1_x, float& bot1_y, int b1_height, int b1_width, float& bot2_x, float& bot2_y, int b2_height, int b2_width){
+void b2bCollision(int& Bot1State, int& Bot2State, float& bot1_x, float& bot1_y, int b1_height, int b1_width, float& bot2_x, float& bot2_y, int b2_height, int b2_width, int& score){
 		if(bot1_x<=bot2_x&&bot1_y<=bot2_y){
 			if((bot2_x-bot1_x)<b1_width&&(bot2_y-bot1_y)<b1_height){
 				// bot1_x=100; bot1_y=640; invincibility=1; lives--;
 				if(Bot2State!=5&&Bot2State!=4){
 				Bot1State=0; Bot2State=0;
 				bot1_y=0; bot2_y=0;
-				bot1_x=0; bot2_x=0;}
+				bot1_x=0; bot2_x=0;
+				score+=100;
+			}
 			}
 		}
 		else if(bot1_x>bot2_x && bot1_y<bot2_y){
@@ -545,27 +617,32 @@ void b2bCollision(int& Bot1State, int& Bot2State, float& bot1_x, float& bot1_y, 
 				if(Bot2State!=5&&Bot2State!=4){
 				Bot1State=0; Bot2State=0;
 				bot1_y=0; bot2_y=0;
-				bot1_x=0; bot2_x=0;}
+				bot1_x=0; bot2_x=0;
+				score+=100;
+			}
 			}
 		}
 
-		if(bot1_x<bot2_x && bot1_y>bot2_y){
+		else if(bot1_x<bot2_x && bot1_y>bot2_y){
 			if((bot2_x-bot1_x)<b1_width && (bot1_y-bot2_y)<b2_height){
 				// bot1_x=100; bot1_y=640;invincibility=1;lives--;
 				if(Bot2State!=5&&Bot2State!=4){
 				Bot1State=0; Bot2State=0;
 				bot1_y=0; bot2_y=0;
-				bot1_x=0; bot2_x=0;}
+				bot1_x=0; bot2_x=0;
+				score+=100;
+			}
 			}
 		}
 
-		if(bot1_x>=bot2_x && bot1_y>=bot2_y){
+		else if(bot1_x>=bot2_x && bot1_y>=bot2_y){
 			if((bot1_x-bot2_x)<b2_width && (bot1_y-bot2_y)<b2_height){
 				// bot1_x =100; bot1_y=640;invincibility=1;lives--;
 				if(Bot2State!=5&&Bot2State!=4){
 				Bot1State=0; Bot2State=0;
 				bot1_x=0; bot2_x=0;
 				bot1_y=0; bot2_y=0;
+				score+=100;
 			}
 			}
 		}
@@ -588,8 +665,9 @@ for(int i=0; i<8; i++){
 			}
 			if(GhostState[i]!=4&&GhostState[i]!=0){
 				if(GhostState[i]!=5){
-			Sprite_gravity(lvl,ghost_offset_y[i],ghost_velocityY[i],dummy_onGround, dummy_go_down, gravity, dummy_isJumping, terminal_Velocity, ghost_x[i], ghost_y[i], cell_size, GhostHeight, GhostWidth, GhostState[i]);
+			if(GhostState[i]!=3)
 			ghost_movement(ev, lvl, ghosttimer[i], ghost_x[i], ghost_y[i], ghost_offset_x[i], ghost_offset_y[i], ghost_velocityY[i], ghost_speed, jumpStrength, dummy_onGround, ghost_direction[i], GhostHeight, GhostWidth, cell_size, GhostState[i], Randomizer[i]);
+			Sprite_gravity(lvl,ghost_offset_y[i],ghost_velocityY[i],dummy_onGround, dummy_go_down, gravity, dummy_isJumping, terminal_Velocity, ghost_x[i], ghost_y[i], cell_size, GhostHeight, GhostWidth, GhostState[i]);
 				}
 			if(ghost_direction[i]==true){
 				GhostSprite[i].setScale(3,3);		
@@ -622,6 +700,7 @@ void SkeletonSet(RenderWindow& window,char** lvl, bool skeleton_sucked[4], Event
 	}
 	if(SkeletonState[i]!=4&&SkeletonState[i]!=0){
 		if(SkeletonState[i]!=5){
+	if(SkeletonState[i]!=3)
 	skeleton_movement(ev,lvl,skeletontimer[i],skeleton_x[i],skeleton_y[i],skeleton_offset_x[i],skeleton_offset_y[i],skeleton_velocityY[i],skeleton_speed, isJumping[i],jumpStrength,onGround[i],skeleton_direction[i],SkeletonHeight,SkeletonWidth,cell_size,SkeletonState[i], go_down[i], Randomizer[i]);
 	if(go_down[i]==1){
 		counter_go_down[i]++;
@@ -647,6 +726,9 @@ void SkeletonSet(RenderWindow& window,char** lvl, bool skeleton_sucked[4], Event
 
 int main()
 {
+	int level=1;
+
+	do{
 	srand(time(0));
 
 	RenderWindow window(VideoMode(screen_x, screen_y), "Tumble-POP", Style::Resize);
@@ -657,25 +739,119 @@ int main()
 	const int height = 14; const int width = 18;
 	char** lvl;
 
+
 	//level and background textures and sprites
+	Texture H;
+	Sprite H1Sprite; Sprite H2Sprite; Sprite H3Sprite;
+	H.loadFromFile("Data/Heart.png");
+	H1Sprite.setTexture(H); H1Sprite.setPosition(5,50); H1Sprite.setScale(0.1,0.1);
+	H2Sprite.setTexture(H); H2Sprite.setPosition(55,50); H2Sprite.setScale(0.1,0.1);
+	H3Sprite.setTexture(H); H3Sprite.setPosition(105,50); H3Sprite.setScale(0.1,0.1);
+
+	
+	Texture IntrobgTex;
+	Sprite IntrobgSprite;
+	Texture StartTex;
+	Sprite StartSprite;
+	Texture ExitTex;
+	Sprite ExitSprite;
+	Sprite* SelectedButton=&StartSprite;
+	Sprite DeathSprite; Texture DeathTex;
+	Sprite PauseSprite; Texture PauseTex;
+	if(!(DeathTex.loadFromFile("Data/Death.png") )){ cout<<"Error Loading Death Screen Texture\n"; return -1;}
+	DeathSprite.setTexture(DeathTex); DeathSprite.setPosition(screen_x/2-100,screen_y/2-100); DeathSprite.setScale(0.2,0.2);
+
+	if(!(PauseTex.loadFromFile("Data/pause.jpg") )){ cout<<"Error Loading PauseScreen Texture\n"; return -1;}
+	PauseSprite.setTexture(PauseTex); PauseSprite.setPosition(-150,-50); PauseSprite.setScale(3,3.5);
+
+	//Main Screen
+	if(!(IntrobgTex.loadFromFile("Data/IntroBg.jpg") )){ cout<<"Error Loading Intro Screen Texture\n"; return -1;}
+	IntrobgSprite.setTexture(IntrobgTex); IntrobgSprite.setPosition(0,0); IntrobgSprite.setScale(0.3,0.2);
+	
+	if(!(StartTex.loadFromFile("Data/start.png") )){ cout<<"Error Loading Start Texture\n"; return -1;}
+	StartSprite.setTexture(StartTex); StartSprite.setPosition(screen_x/2-200,screen_y/2-150); StartSprite.setScale(0.15,0.15);
+
+	if(!(ExitTex.loadFromFile("Data/exit.png") )){ cout<<"Error Loading Exit Texture\n"; return -1;}
+	ExitSprite.setTexture(ExitTex); ExitSprite.setPosition(screen_x/2-120,screen_y/2); ExitSprite.setScale(0.12,0.12);
+
+	// if(!(IntrobgTex.loadFromFile("Data/exit.png") )){ cout<<"Error Loading Intro Screen Texture\n"; return -1;}
+	// if(!(IntrobgTex.loadFromFile("Data/IntroBg.png") )){ cout<<"Error Loading Intro Screen Texture\n"; return -1;}
+	bool play=0;
+	for(; play==0;){
+	sf::Event ev;	
+	while (window.pollEvent(ev))
+	{
+			
+		if (ev.type == Event::KeyPressed)
+		{
+			if(Keyboard::isKeyPressed(Keyboard::Up)||Keyboard::isKeyPressed(Keyboard::Down))
+			{
+				if(SelectedButton==&StartSprite){
+					StartSprite.setPosition(screen_x/2-140,screen_y/2-150); StartSprite.setScale(0.1,0.1);
+					SelectedButton=&ExitSprite;
+					ExitSprite.setPosition(screen_x/2-150,screen_y/2); ExitSprite.setScale(0.15,0.15);
+					
+				}
+				else if(SelectedButton==&ExitSprite){
+					ExitSprite.setPosition(screen_x/2-120,screen_y/2); ExitSprite.setScale(0.12,0.12);					
+					SelectedButton=&StartSprite;
+					StartSprite.setPosition(screen_x/2-200,screen_y/2-150); StartSprite.setScale(0.15,0.15);
+					
+				}
+			}
+
+			if(Keyboard::isKeyPressed(Keyboard::Enter))
+				if(SelectedButton==&StartSprite)
+						play=1;
+				else
+					return 0;				
+
+			}
+	}
+
+
+
+		window.draw(IntrobgSprite);
+		window.draw(StartSprite);
+		window.draw(ExitSprite);
+		window.display();
+	}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	Font font;
+	if(!(font.loadFromFile("Data/aerial.ttf"))){ cout<<"Can't load font...\n"; return -1;};
+	Text ScorePrint;
+	ScorePrint.setFont(font); ScorePrint.setCharacterSize(30);
+	ScorePrint.setFillColor(sf::Color::White);ScorePrint.setPosition(20, 20);
+	ScorePrint.setString("Score: 0");
+
 	Texture bgTex;
 	Sprite bgSprite;
 	Texture blockTexture;
 	Sprite blockSprite;
-
+	
 	bgTex.loadFromFile("Data/bg.png"); 	bgSprite.setTexture(bgTex); bgSprite.setPosition(0,0);
-
+	
 	blockTexture.loadFromFile("Data/block1.png"); blockSprite.setTexture(blockTexture);
 
 	//Music initialisation
 	Music lvlMusic;
 	lvlMusic.openFromFile("Data/mus.ogg");	lvlMusic.setVolume(20);	lvlMusic.play();	lvlMusic.setLoop(true);
 
+	// Level Data
+	int points=0;
+	bool death; int deathtexttimer=0;
+	bool pause=0;
+	int score=0;
+	
+	
+	
 	//PLAYER data
 	float player_x = 80;	float player_y = 640;
 	bool player_direction = true; //true is left, false is right
 	int updownvaccum;
-	float player_speed = 5; int lives=100;
+	float player_speed = 5; int lives=3;
 
 	int PlayerHeight = 102;	int PlayerWidth = 96;
 	float player_offset_x = 0;	float player_offset_y = 0;
@@ -684,13 +860,14 @@ int main()
 	bool up_collide = false;	bool left_collide = false;	bool right_collide = false; 
 	bool mid_collide = false;
 	
-	
+
 	int sizeofbag=3;
-	int vaccumframe=0; int startpoint_vaccum=0; bool vaccumOn=0;
+	int vaccumframe=0; int startpoint_vaccum=0; int v_startpoint_vaccum=243; bool vaccumOn=0;
 	int vaccumpositionX=0; int vaccumpositionY=0;
 	int suck_distance=48*3; int total_sucked=0;
+	int suckingtime=0; bool throwndown=0;
 	bool invincibility=0; int invincibilitytimer=0;
-	int SCOUNTER=0;
+	int SCOUNTER=-1; int throwupdowncounter=0;
 	// Track bots in bag: store {bot_type, index} where bot_type: 0=ghost, 1=skeleton
 	int bag_bot_type[sizeofbag]={-1}; 
 	int bag_bot_index[sizeofbag]={-1}; 
@@ -766,10 +943,11 @@ int main()
 
 
 	//PLAYER SPRITE
-	Texture PlayerTexture;	Sprite PlayerSprite; Texture VaccumText; Sprite Vaccum;
+	Texture PlayerTexture;	Sprite PlayerSprite; Texture VaccumText1; Texture VaccumText2; Sprite Vaccum;
 	if(!(PlayerTexture.loadFromFile("Data/player.png"))){ cout<<"Error to load Player Texture\n"; return -1;} //Isme mene texture to upload bhi kia aur ye bhi check kia if the file loaded successfully
-	if(!(VaccumText.loadFromFile("Data/Vaccum.png"))){ cout<<"Error to load Vaccum\n"; return -1;}
-	PlayerSprite.setTexture(PlayerTexture); 	Vaccum.setTexture(VaccumText); 
+	if(!(VaccumText1.loadFromFile("Data/Vaccum.png"))){ cout<<"Error to load Vaccum\n"; return -1;}
+	if(!(VaccumText2.loadFromFile("Data/Vaccum--vertical.png"))){ cout<<"Error to load Vaccum\n"; return -1;}
+	PlayerSprite.setTexture(PlayerTexture); 	Vaccum.setTexture(VaccumText1); 
 
 	//	GHOST SPRITE
 	Texture GhostTexture;	Sprite GhostSprite[8];
@@ -784,38 +962,80 @@ int main()
 	}
 	
 	//creating level array
-	lvl = new char* [height];
-	for (int i = 0; i < height; i += 1)
-	{
-		lvl[i] = new char[width]; 
-	}
-
-	for (int i = 0; i < height; i++)
-	{
-		for (int j = 0; j < width; j++)
+	if(level==1){
+		lvl = new char* [height];
+		for (int i = 0; i < height; i += 1)
 		{
-		lvl[i][j] = ' ';   // for empty spacesd
+			lvl[i] = new char[width]; 
+		}
+
+		for (int i = 0; i < height; i++)
+		{
+			for (int j = 0; j < width; j++)
+			{
+			lvl[i][j] = ' ';   // for empty spacesd
+			}
+		}
+		// lvl[3][6]='#';
+		for(int i=0; i<4; i++){
+			 lvl[10][i]='#';
+			 lvl[10][17-i]='#';
+			 lvl[5][i]='#';
+			 lvl[5][17-i]='#';
+		}
+		for(int i=0; i<8; i++){
+			lvl[8][i+5]='#';
+		}
+		for(int i=0; i<4;i++){
+			lvl[i+9][8]='#';
+		}
+		for(int i=0; i<18; i++){
+			lvl[13][i]='#';
 		}
 	}
-	lvl[3][6]='#';
-	lvl[4][9]='#';lvl[4][10]='#';lvl[4][11]='#'; lvl[4][12]='#';lvl[4][7]='#';lvl[4][8]='#';
-	lvl[6][0]='#';lvl[6][1]='#';lvl[6][2]='#';lvl[6][3]='#';lvl[6][17]='#';lvl[6][16]='#';lvl[6][15]='#';lvl[6][14]='#';
-	lvl[8][5]='#';lvl[8][6]='#';lvl[8][7]='#';lvl[8][8]='#';lvl[8][9]='#';lvl[8][10]='#';lvl[8][11]='#';lvl[8][12]='#'; lvl[11][8]='#';lvl[11][9]='#';lvl[11][10]='#';lvl[11][6]='#';lvl[11][7]='#';
-	for(int i=0; i<18; i++){
-		lvl[13][i]='#';
-	}
+	else if(level==2){
 
-	int spawncandidates[100][2];
+		lvl = new char* [height];
+		for (int i = 0; i < height; i += 1)
+		{
+			lvl[i] = new char[width]; 
+		}
+		for (int i = 0; i < height; i++)
+		{
+			for (int j = 0; j < width; j++)
+			{
+			lvl[i][j] = ' ';   // for empty spacesd
+			}
+		}
+		// lvl[3][6]='#';
+		lvl[4][9]='#';lvl[4][10]='#';lvl[4][11]='#'; lvl[4][12]='#';lvl[4][7]='#';lvl[4][8]='#';
+		lvl[6][0]='#';lvl[6][1]='#';lvl[6][2]='#';lvl[6][3]='#';lvl[6][17]='#';lvl[6][16]='#';lvl[6][15]='#';lvl[6][14]='#';
+		lvl[8][5]='#';lvl[8][6]='#';lvl[8][7]='#';lvl[8][8]='#';lvl[8][9]='#';lvl[8][10]='#';lvl[8][11]='#';lvl[8][12]='#'; lvl[11][8]='#';lvl[11][9]='#';lvl[11][10]='#';lvl[11][6]='#';lvl[11][7]='#';
+		for(int i=0; i<18; i++){
+			lvl[13][i]='#';
+		}
+	}
+	else{
+		level=1;
+		continue;
+	}
+int spawncandidates[100][2];
 	int candidatesavailable=spawn(lvl, spawncandidates, height, width);
 	for(int i=0; i<8; i++){
 		int random_coordinate=rand()%(candidatesavailable);
 		ghost_y[i]=spawncandidates[random_coordinate][0]*64;
 		ghost_x[i]=spawncandidates[random_coordinate][1]*64;
+		if(!((ghost_x[i]-player_x)<400&&(ghost_x[i]-player_x)>-400))
+			continue;
+		i--;
 	}
 	for(int i=0; i<4; i++){
 		int random_coordinate=rand()%(candidatesavailable);
 		skeleton_y[i]=spawncandidates[random_coordinate][0]*64;
 		skeleton_x[i]=spawncandidates[random_coordinate][1]*64;
+		if(!((skeleton_x[i]-player_x)<400&&(skeleton_x[i]-player_x)>-400))
+			continue;
+		i--;
 	}
 	Event ev;
 	while (window.isOpen())
@@ -828,9 +1048,18 @@ int main()
 			}
 			if (ev.type == Event::KeyPressed)
 			{
+				if(Keyboard::isKeyPressed(Keyboard::P))
+					pause=!pause;
 			}
 		}
-
+	if(pause){
+		window.draw(PauseSprite);
+	}
+	else{
+		if(levelpromo(GhostState, SkeletonState)){
+			level++;
+			window.close();
+		}
 		if (Keyboard::isKeyPressed(Keyboard::RShift))
 		{
 			window.close();
@@ -841,18 +1070,33 @@ int main()
 		// FOR PLAYER
 
 		Sprite_gravity(lvl,player_offset_y,player_velocityY,onGround, go_down, gravity, isJumping, terminal_Velocity, player_x, player_y, cell_size, PlayerHeight, PlayerWidth, PlayerState);
-		movement_player(ev, Vaccum, vaccumOn, player_x, player_y, player_offset_x, player_offset_y, player_velocityY, player_speed, jumpStrength, isJumping, onGround, go_down, counter_go_down, player_direction,updownvaccum, vaccumframe, startpoint_vaccum, PlayerState);
-		wallCollision(player_x,player_y, player_offset_x, player_offset_y, player_velocityY, isJumping, onGround, player_speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, bottom_mid, up_collide,left_collide,right_collide, mid_collide, lvl, PlayerHeight, PlayerWidth, cell_size, PlayerState);
+		if(!death){
+			movement_player(ev, Vaccum, vaccumOn, player_x, player_y, player_offset_x, player_offset_y, player_velocityY, player_speed, jumpStrength, isJumping, onGround, go_down, counter_go_down, player_direction,updownvaccum, vaccumframe, startpoint_vaccum, v_startpoint_vaccum, PlayerState, throwndown);
+			wallCollision(player_x,player_y, player_offset_x, player_offset_y, player_velocityY, isJumping, onGround, player_speed, bottom_left, left_mid, top_left, top_right, right_mid, bottom_right, bottom_mid, up_collide,left_collide,right_collide, mid_collide, lvl, PlayerHeight, PlayerWidth, cell_size, PlayerState);
+		}
 		// Release(nextinbag, bag_bot_type, bag_bot_index, GhostState, SkeletonState);
 		if(player_direction==true){
 				vaccumpositionX=player_x-48*3; vaccumpositionY= player_y+12;
 				PlayerSprite.setScale(3,3);	PlayerSprite.setPosition(player_x, player_y+2);
+				Vaccum.setTexture(VaccumText1); 
 				Vaccum.setScale(3,3); Vaccum.setPosition(vaccumpositionX, vaccumpositionY);
 				}
 		else{
 			vaccumpositionX=player_x+48*3; vaccumpositionY= player_y+12;			
 			PlayerSprite.setScale(-3,3); PlayerSprite.setPosition(player_x+PlayerWidth, player_y+2);
+			Vaccum.setTexture(VaccumText1); 
 			Vaccum.setScale(-3,3);  Vaccum.setPosition(vaccumpositionX+PlayerWidth, vaccumpositionY);	
+		}
+		if(updownvaccum==1){
+				Vaccum.setTexture(VaccumText2); 
+				Vaccum.setScale(3,-3); Vaccum.setPosition(player_x, player_y);			
+		}
+		else if(updownvaccum==-1){
+				Vaccum.setTexture(VaccumText2); 
+				Vaccum.setScale(3,3); Vaccum.setPosition(player_x, player_y+PlayerHeight);
+		}
+		else{
+				Vaccum.setTexture(VaccumText1);
 		}
 		window.draw(PlayerSprite); 	
 
@@ -860,16 +1104,16 @@ int main()
 			if(SkeletonState[i]==5) {
 				for(int j=0; j<4; j++) //j!=i
 				// if(i!=j)
-					b2bCollision(SkeletonState[i], SkeletonState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth);
+					b2bCollision(SkeletonState[i], SkeletonState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth, score);
 				for(int j=0;j<8;j++)
 				// if(i!=j)
-					b2bCollision(SkeletonState[i], GhostState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth);
+					b2bCollision(SkeletonState[i], GhostState[j], skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth, score);
 
 				// Being thrown - handle collision and physics
 				int collision_result = ThrownCollision(
 					skeleton_x[i], skeleton_y[i],
 					skeleton_throw_velocity_x[i], skeleton_throw_velocity_y[i],
-					lvl, cell_size, SkeletonHeight, SkeletonWidth, height, width, gravity
+					lvl, cell_size, SkeletonHeight, SkeletonWidth, height, width, gravity, updownvaccum, throwupdowncounter, throwndown
 				);
 				if(collision_result == 1) {
 					SkeletonState[i] = 0;  // Return to normal state
@@ -885,7 +1129,7 @@ int main()
 				Collision(PlayerSprite, invincibility, lives, player_x, player_y, PlayerHeight, PlayerWidth, skeleton_x[i], skeleton_y[i], SkeletonHeight, SkeletonWidth);
 				// Only suck if not in bag (state != 4)
 				if(vaccumOn && SkeletonState[i] != 4&&SkeletonState[i]!=0)
-					Suck(SkeletonState[i], 1, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, skeleton_x[i], skeleton_y[i], suck_distance);
+					Suck(SkeletonState[i], 1, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, updownvaccum, suckingtime, skeleton_x[i], skeleton_y[i], suck_distance, player_x, player_y, score);
 			}
 		}
 		for(int i = 0; i<8; i++){
@@ -893,16 +1137,16 @@ int main()
 
 				for(int j=0; j<4; j++) //j!=i
 				if(i!=j)
-					b2bCollision(GhostState[i], SkeletonState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth);
+					b2bCollision(GhostState[i], SkeletonState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, skeleton_x[j], skeleton_y[j], SkeletonHeight, SkeletonWidth, score);
 				for(int j=0;j<8;j++)
 				if(i!=j)
-					b2bCollision(GhostState[i], GhostState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth);
+					b2bCollision(GhostState[i], GhostState[j], ghost_x[i], ghost_y[i], GhostHeight, GhostWidth, ghost_x[j], ghost_y[j], GhostHeight, GhostWidth, score);
 
 				// Being thrown - handle collision and physics
 				int collision_result = ThrownCollision(
 					ghost_x[i], ghost_y[i],
 					ghost_throw_velocity_x[i], ghost_throw_velocity_y[i],
-					lvl, cell_size, GhostHeight, GhostWidth, height, width, gravity
+					lvl, cell_size, GhostHeight, GhostWidth, height, width, gravity, updownvaccum, throwupdowncounter, throwndown
 				);
 				if(collision_result == 1) {
 					GhostState[i] = 0;  // Return to normal state
@@ -918,7 +1162,7 @@ int main()
 				Collision(PlayerSprite, invincibility, lives, player_x, player_y, PlayerHeight, PlayerWidth, ghost_x[i], ghost_y[i], GhostHeight, GhostWidth);
 				// Only suck if not in bag (state != 4)
 				if(vaccumOn && GhostState[i] != 4&&GhostState[i]!=0)
-					Suck(GhostState[i], 0, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, ghost_x[i], ghost_y[i], suck_distance);
+					Suck(GhostState[i], 0, i, nextinbag, bag_bot_type, bagbot_x, bagbot_y, bag_bot_index, vaccumpositionX, vaccumpositionY, player_direction, updownvaccum, suckingtime, ghost_x[i], ghost_y[i], suck_distance, player_x, player_y, score);
 			}
 		}
 		//Ghost
@@ -927,9 +1171,9 @@ int main()
 		SkeletonSet(window, lvl, skeleton_sucked, ev, SkeletonSprite, skeleton_frame, skeletontimer, skeleton_counter_go_down, skeleton_x, skeleton_y, skeleton_offset_x, skeleton_offset_y, skeleton_velocityY, skeleton_speed, jumpStrength, skeleton_isJumping, skeleton_onGround, skeleton_go_down, skeleton_direction, SkeletonHeight, SkeletonWidth, cell_size, SkeletonState, terminal_Velocity, gravity, skeleton_startpoint, skeleton_randomizer);
 
 				//////////////////////////////////////////////////////////////////////////////////////////////////////////
-		if (Keyboard::isKeyPressed(Keyboard::S) && nextinbag > 0 )
-	{
 		SCOUNTER++;
+		if (Keyboard::isKeyPressed(Keyboard::Space) && nextinbag > 0 )
+	{
 		if(SCOUNTER>10) SCOUNTER=0;
 		if(SCOUNTER==1){
 		int last_type = bag_bot_type[nextinbag-1];
@@ -940,15 +1184,15 @@ int main()
 		if(last_type == 0) {
 			GhostState[last_index] = 5;
 			ghost_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
-			ghost_throw_velocity_y[last_index] = -5;  // Throw upward
-			ghost_x[last_index]=vaccumpositionX;
+			ghost_throw_velocity_y[last_index] = 0;  // Throw upward
+			ghost_x[last_index]=vaccumpositionX+(player_direction?70:-70);
 			ghost_y[last_index]=vaccumpositionY-10;
 		}
 		else if(last_type == 1) {
 			SkeletonState[last_index] = 5;
 			skeleton_throw_velocity_x[last_index] = player_direction ? -15 : 15;  // Throw opposite to player direction
-			skeleton_throw_velocity_y[last_index] = -5;  // Throw upward
-			skeleton_x[last_index]=vaccumpositionX;
+			skeleton_throw_velocity_y[last_index] = 0;  // Throw upward
+			skeleton_x[last_index]=vaccumpositionX+(player_direction?70:-70);
 			skeleton_y[last_index]=vaccumpositionY-10;
 		}
 		nextinbag--;
@@ -963,11 +1207,16 @@ int main()
 			if(bag_bot_type[i] == 0) {
 				GhostState[bag_bot_index[i]] = 5;
 				ghost_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
-				// ghost_throw_velocity_y[bag_bot_index[i]] = -15;
+				ghost_x[bag_bot_index[i]]=vaccumpositionX+(player_direction?70:-70);
+				ghost_y[bag_bot_index[i]]=vaccumpositionY-10;
 			}
 			else if(bag_bot_type[i] == 1) {
 				SkeletonState[bag_bot_index[i]] = 5;
 				skeleton_throw_velocity_x[bag_bot_index[i]] = player_direction ? -15 : 15;
+				skeleton_x[bag_bot_index[i]]=vaccumpositionX+(player_direction?70:-70);
+				skeleton_y[bag_bot_index[i]]=vaccumpositionY-10;
+
+
 				// skeleton_throw_velocity_y[bag_bot_index[i]] = -15;
 			}
 		}
@@ -985,13 +1234,39 @@ int main()
 		}
 		if(vaccumOn)
 			window.draw(Vaccum); 
+		else 
+			suckingtime=0;
+		
 		if(lives==0)	
-			exit(0);
+			death=1;
+		if(lives>=1)
+			window.draw(H1Sprite);
+		if(lives>=2)
+			window.draw(H2Sprite);
+		if(lives>=3)
+			window.draw(H3Sprite);
+		if(death){
+			deathtexttimer++;
+			// window.clear();
+			window.draw(DeathSprite);
+			if(deathtexttimer>200){
+				deathtexttimer=0;
+				death=0;
+				window.close();
+			}
+			// window.draw(deathtext);
+
+		}
+	}
 		// Despawn(player_x, player_y, ghost_x, ghost_y);
 		// Despawn(player_x, player_y, skeleton_x, skeleton_y);
+		ScorePrint.setString("Score: " + std::to_string(score));
+		window.draw(ScorePrint);
 		window.display();
-}
 
+		
+	}
+	
 	//stopping music and deleting level array
 	lvlMusic.stop();
 	for (int i = 0; i < height; i++)
@@ -999,7 +1274,8 @@ int main()
 		delete[] lvl[i];
 	}
 	delete[] lvl;
-
+	
+}while(1);
 	return 0;
 }
 
